@@ -37,12 +37,15 @@ $(GCH): g_%: $(BUILD)/%
 # build-docker : 컨테이너의 /work/build 위에 덧씌운다. 호스트 build/ 와 섞이지 않고,
 #                scripts/check.sh 가 고정한 build 경로도 그대로 동작한다.
 # HOME=/tmp    : uid 1000 은 컨테이너 passwd 에 없어 HOME 이 비어 gdb 가 경고한다.
+# ~/.gdbinit, ~/.config/gdb : 호스트의 gdb 설정(TUI dbg/tk/walk/snap)을 그 HOME 에
+#                읽기 전용으로 붙인다. 복사가 아니라 같은 파일이다.
 # DOCKER_TTY   : 터미널이 아닌 곳(스크립트)에서 부를 때 make dcheck DOCKER_TTY=-i
 DOCKER_TTY ?= -it
 DOCKER_IMG ?= memdbg
 DOCKER := docker run --rm $(DOCKER_TTY) \
   --cap-add=SYS_PTRACE --security-opt seccomp=unconfined \
   --user $(shell id -u):$(shell id -g) -e HOME=/tmp \
+  -v "$(HOME)/.gdbinit":/tmp/.gdbinit:ro -v "$(HOME)/.config/gdb":/tmp/.config/gdb:ro \
   -v "$(CURDIR)":/work -v "$(CURDIR)/build-docker":/work/build -w /work \
   $(DOCKER_IMG)
 

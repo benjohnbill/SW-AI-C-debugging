@@ -71,8 +71,9 @@ are upstream files: leave them, never recommend F5 or Reopen in Container.
 
 Host: Ubuntu 26.04 · gcc 15 · glibc 2.43 · gdb 17 with his own
 `~/.gdbinit` + `~/.config/gdb/*.py` (TUI `dbg`, `tk`, `walk`, `snap`,
-`rerun`). Container (`memdbg`): Ubuntu 24.04 · gcc 13 · glibc 2.39 · gdb 15,
-plain config. Measured 2026-09-15: 18/20 crash identically on both.
+`rerun`). Container (`memdbg`): Ubuntu 24.04 · gcc 13 · glibc 2.39 · gdb 15, with the
+same `~/.gdbinit` and `~/.config/gdb` bind-mounted read-only (so `dbg`, `tk`,
+`walk`, `snap` work there too; only the gdb-16 color slots are skipped). Measured 2026-09-15: 18/20 crash identically on both.
 
 - `10_realloc_dangling` does **not** crash on the host (glibc 2.43 misses the
   double free) and `17_ownership_uaf` aborts on host but segfaults in the
