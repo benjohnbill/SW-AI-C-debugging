@@ -1,0 +1,8 @@
+# 에디터(clangd)가 터미널의 gcc 와 같은 눈으로 코드를 보게 맞추는 설정.
+# 여기 적힌 플래그는 upstream Makefile 의 CSTD + WARN 과 같아야 한다.
+CompileFlags:
+  Add:
+    - -std=c11
+    - -Wall
+    - -Wextra
+    - -Wno-unused-parameter

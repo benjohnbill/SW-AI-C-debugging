@@ -27,3 +27,6 @@ vgcore.*
 !.vscode/launch.json
 !.vscode/tasks.json
 !.vscode/extensions.json
+
+# 컨테이너 빌드 산출물 (GNUmakefile 이 컨테이너의 build/ 를 여기로 돌린다)
+build-docker/
