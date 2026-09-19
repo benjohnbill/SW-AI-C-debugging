@@ -50,7 +50,7 @@ typedef struct {
 } VTable;
 
 struct Widget {
-    const VTable *vtbl; 
+    const VTable *vtbl;
     int id;
     int closed;
     char label[24];
@@ -83,7 +83,6 @@ static const VTable LABEL_VT  = { label_render,  widget_noop_event };
 static const VTable DIALOG_VT = { dialog_render, dialog_on_event  };
 
 static Widget *widget_new(const VTable *vt, int id, const char *label) {
-
     /* [Thinking Point]
     *   w 에 아직 아무 값도 넣지 않았는데, sizeof *w 로 *w 를 써도 괜찮은 이유는?
     *   tip 1. sizeof 는 피연산자를 '실행(역참조)'하지 않고 '타입'만 본다.
@@ -102,7 +101,7 @@ static Widget *widget_new(const VTable *vt, int id, const char *label) {
 }
 
 static void widget_destroy(Widget *w) {
-    free(w);          
+    free(w);
 }
 
 /* ── Screen ──────────────────────────────────────────────────── */
@@ -113,6 +112,9 @@ static void screen_add(Screen *s, Widget *w) {
 static void screen_dispatch(Screen *s, int code) {
     for (int i = 0; i < s->count; i++) {
         Widget *w = s->items[i];
+        if (w == NULL){
+            continue;
+        }
         w->vtbl->on_event(w, code);
     }
 }
@@ -120,24 +122,27 @@ static void screen_dispatch(Screen *s, int code) {
 static void screen_render(Screen *s) {
     for (int i = 0; i < s->count; i++) {
         Widget *w = s->items[i];
-        w->vtbl->render(w);      
+        if (w == NULL){
+            continue;
+        }
+        w->vtbl->render(w);
     }
 }
 
 static void dialog_on_event(Widget *self, int code) {
     if (code == 1) {
         self->closed = 1;
-        widget_destroy(self);   
+        // widget_destroy(self);
     }
 }
 
 static char *app_build_status(const char *text) {
-    char *msg = malloc(sizeof(Widget));   
+    char *msg = malloc(sizeof(Widget));
     if (!msg) exit(1);
 
     /* [테스트용 연출] 재사용한 메모리를 0xAB 로 '일부러' 덮어써서 오염시킨다.
      * 실무라면 다른 기능이 우연히 이 자리를 덮어쓰겠지만, 여기서는 UAF 크래시를
-     * 매번 똑같이(결정적으로) 재현하기 위해 인위적으로 채운다. 
+     * 매번 똑같이(결정적으로) 재현하기 위해 인위적으로 채운다.
      * glibc(리눅스) 환경 (tcache)에서만 유효하다. 환경&상황에 따라 msg는 새로운 주소로 할당될 수 있다.
      */
     memset(msg, 0xAB, sizeof(Widget));
@@ -149,21 +154,35 @@ int main(void) {
     Screen s = { .count = 0 };
 
     screen_add(&s, widget_new(&LABEL_VT,  10, "Welcome"));
-    screen_add(&s, widget_new(&BUTTON_VT, 11, "OK"));
     screen_add(&s, widget_new(&DIALOG_VT, 12, "Are you sure?"));  /* items[2] */
+    screen_add(&s, widget_new(&BUTTON_VT, 11, "OK"));
     screen_add(&s, widget_new(&BUTTON_VT, 13, "Cancel"));
 
     printf("frame 1:\n");
     screen_render(&s);
     screen_dispatch(&s, 1);
 
-    /* TODO 닫힌(closed) 위젯을 여기서 정리(free + 해당 슬롯 NULL)할 필요가 있음 */
+    // for (int i = 0; i < s.count; i++){
+    //     Widget *w = s.items[i];
+    //     if (w->closed == 1){
+    //         w = NULL;
+    //     }
+    // }
+
+    for (int i = 0; i < s.count; i++){
+        Widget *w = s.items[i];
+        if (w->closed == 1){
+            widget_destroy(w);
+            s.items[i] = NULL;
+            // s.count--;
+        }
+    } // screen_render에서 w->vtbl이 주소 0에서 8바이트를 읽으려고 하니까, SIGSEGV.0 1 2 3 0 1 3
 
     char *status = app_build_status("dialog closed");
     printf("%s\n", status);
 
     printf("frame 2:\n");
-    screen_render(&s);           
+    screen_render(&s);
 
     free(status);
     for (int i = 0; i < s.count; i++) free(s.items[i]);

@@ -63,7 +63,7 @@ static int tri_index(int i, int j) {
 
 /* 파스칼의 삼각형을 tri[] 에 채운다. */
 static void build_pascal(int *tri, int rows) {
-    for (int i = 0; i <= rows; i++) {
+    for (int i = 0; i < rows; i++) { // 14보다 작을 때까지
         for (int j = 0; j <= i; j++) {
             int idx = tri_index(i, j);
             if (j == 0 || j == i) {
@@ -89,10 +89,11 @@ static void print_row(const int *tri, int i) {
     printf("   (sum=%ld)\n", row_sum(tri, i));
 }
 
+
 int main(void) {
     int tri[SIZE];
 
-    build_pascal(tri, ROWS);          
+    build_pascal(tri, ROWS);
 
     for (int i = 0; i < ROWS; i++) print_row(tri, i);
 
