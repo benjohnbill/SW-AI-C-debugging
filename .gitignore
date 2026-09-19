@@ -30,3 +30,6 @@ vgcore.*
 
 # 컨테이너 빌드 산출물 (GNUmakefile 이 컨테이너의 build/ 를 여기로 돌린다)
 build-docker/
+
+# ASan/UBSan 빌드 산출물 (GNUmakefile: make asan <이름>)
+build-asan/
