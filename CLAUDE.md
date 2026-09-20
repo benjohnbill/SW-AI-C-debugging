@@ -70,27 +70,32 @@ Editor is **Zed** (Windows → WSL remote). `.vscode/` and `.devcontainer/`
 are upstream files: leave them, never recommend F5 or Reopen in Container.
 
 Host: Ubuntu 26.04 · gcc 15 · glibc 2.43 · gdb 17 with his own
-`~/.gdbinit` + `~/.config/gdb/*.py` (repo `benjohnbill/gdb-config`).
+`~/.config/gdb/gdbinit` + `~/.config/gdb/*.py` (repo `benjohnbill/gdb-config`).
+`~/.gdbinit` is inert: six comment lines, no definitions.
 Container (`memdbg`): Ubuntu 24.04 · gcc 13 · glibc 2.39 · gdb 15, with the same
-`~/.gdbinit` and `~/.config/gdb` bind-mounted read-only, so the commands below
+`~/.config/gdb` bind-mounted read-only, so the commands below
 work there too; only the gdb-16 color slots are skipped. Measured 2026-09-15:
 18/20 crash identically on both.
 
 He wrote every command in this table himself. A question about one is a direct
-request, not the exercise. The grammar is in `help track`, `help each`,
-`help walk`, `help deep` and `help back`.
+request, not the exercise. `help track` and friends are his path to the grammar,
+not yours: you cannot run them. The definitions are on disk in
+`~/.config/gdb/*.py`. Before you describe any grammar, flag, or state lifecycle
+below, read `~/.claude/docs/tool-guides/gdb-commands.md` — it routes to the
+defining file and lists what stock-gdb reasoning gets wrong here.
 
 | Command | What it does |
 |---|---|
 | `dbg` · `vars` · `out` | TUI layouts: tall source · source and values · the program's own output (`out send TEXT`, `out off`) |
-| `tk EXPR` · `tk -l EXPR` | one row per expression, redrawn in place, not scrolled. `-l` pins the row to the address, so it survives leaving the frame |
+| `tk EXPR` · `tk -l EXPR` · `tk /FMT EXPR` | one row per expression, redrawn in place, not scrolled. `-l` pins the row to the address, so it survives leaving the frame — and is never re-pinned, so it outlives `rerun` pointing at whoever owns that address now. `/FMT` makes a memory row, compared word by word |
 | `itk` · `utk N` · `utk 1..4` | list the rows · remove row N · remove rows 1 to 4, both ends included |
 | `tk walk EXPR N [FIELD]` | the first N nodes of a chain, one row each. FIELD only when more than one field points at the node's own type |
 | `tk deep EXPR N` | EXPR and every struct it reaches within N levels, one row each. N counts levels, so a tree branches fast |
-| `tk tri[0..5]` · `tk each PATTERN` | one row per element or member. Tokens: `[A..B]`, `[..]`, `[]`, `.*`, `->*`. A bound is an expression: `tri[0..rows-1]`. No token steps an array or a struct whole |
-| `walk EXPR [FIELD]` · `deep EXPR N` · `each [/FMT] PATTERN` | the same three expansions, printed once instead of tracked. Every line is numbered `$N`, as `print` numbers its own, so `$3` reads one back |
+| `tk tri[0..5]` · `tk each PATTERN` | one row per element or member. Tokens: `[A..B]`, `[A..]`, `[..B]`, `[..]`, `[]`, `.*`, `->*`. A bound is an expression: `tri[0..rows-1]`. No token steps an array or a struct whole |
+| `-l` on all three | `tk walk -l` · `tk deep -l` · `tk each -l` pin every row of the group to its own address. The standalone `walk`, `deep` and `each` take no flag |
+| `walk EXPR [FIELD]` · `deep EXPR N` · `each [/FMT] PATTERN` | the same three expansions, printed once instead of tracked. `each` and `deep` number every line `$N`, as `print` numbers its own, so `$3` reads one back. `walk` does not number its lines. `each` takes one format letter and refuses `/4xg` |
 | `snap [LABEL]` · `snaps` · `back [LABEL]` | named checkpoints. `back` re-takes the flag it returns to, so the same one works again |
-| `rebuild` · `rerun` | make the loaded binary · rebuild, kill the process, run |
+| `rebuild [TARGET]` · `rerun` | make the loaded binary · rebuild, kill the process, drop the source cache (a bare `directory`), run. A failed build stops before the kill |
 
 A row shows `*` and `old -> new` when the value moved since the previous stop,
 and `?` when the expression cannot be read from the selected frame.
@@ -112,6 +117,12 @@ make dshell | dimage | dclean
 
 Upstream `make run NAME=… / make gdb NAME=… / make check` still work.
 `build/` is host output, `build-docker/` is container output; both ignored.
+
+`lab/` is ours too: hand-written experiments and their write-ups.
+`lab/heap-anatomy.md` is the glibc chunk reference — layout, the size formula,
+reuse policy, and header-first debugging. Every claim in it was measured on both
+environments (2026-09-21). `lab/hwalk.gdb` defines `hsize`, `hwalk` and `hwatch`
+from it; section 10 is the drill that uses them.
 
 Repo layout: `upstream` = `krafton-jungle/debugging_lab_docker` (pull only),
 `origin` = `benjohnbill/SW-AI-C-debugging`. Sync with
