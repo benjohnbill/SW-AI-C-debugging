@@ -28,7 +28,7 @@
  *   (gdb) run                       → abort
  *   (gdb) bt                        → directory_free() 의 두 번째 free 루프
  *   (gdb) frame N ; print d->by_name[i] → 이 주소가 앞서 by_id 로 이미 free 됐는지 확인
- *   (gdb) print d->by_id[0]          
+ *   (gdb) print d->by_id[0]
  *
  * [printf(로그)로 잡기]
  *   free 직전마다 주소를 찍어 같은 주소가 두 번 나오는지 본다:
@@ -45,13 +45,13 @@
 
 typedef struct {
     int   id;
-    char *name;      
+    char *name;
 } Rec;
 
 #define MAXN 16
 typedef struct {
-    Rec *by_id[MAXN];     
-    Rec *by_name[MAXN];    
+    Rec *by_id[MAXN];
+    Rec *by_name[MAXN];
     int  count;
 } Directory;
 
@@ -102,11 +102,11 @@ static void directory_dump(Directory *d) {
 static void directory_free(Directory *d) {
     for (int i = 0; i < d->count; i++) {
         free(d->by_id[i]->name);
-        free(d->by_id[i]);                 
+        free(d->by_id[i]);
     }
-    for (int i = 0; i < d->count; i++) {
-        free(d->by_name[i]);               
-    }
+    // for (int i = 0; i < d->count; i++) {
+    //     free(d->by_name[i]);
+    // }
     d->count = 0;
 }
 
@@ -124,7 +124,7 @@ int main(void) {
     Rec *r = find_by_id(&dir, 2);
     if (r) printf("lookup id=2 -> %s\n", r->name);
 
-    directory_free(&dir);                  
+    directory_free(&dir);
     printf("done\n");
     return 0;
 }
