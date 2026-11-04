@@ -43,6 +43,46 @@ $(LABG): g_lab_%: $(BUILD)/lab_%
 $(LABDG): dg_lab_%: | build-docker
 	$(DOCKER) make g_lab_$*
 
+# ─── porting: Python → C 이식 (챌린지가 아니다) ───
+# 2주차에 Python 으로 푼 문제를 빈 파일에서 C 로 다시 짠다. porting/README.md 참고.
+# 산출물 이름에 port_ 를 붙여 챌린지 산출물과 섞이지 않게 한다.
+#   make 01_quick_sort     컴파일만 (문법 확인)
+#   make r_01_quick_sort   실행
+#   make d_01_quick_sort   실행 + 기대 출력과 diff (채점)
+#   make v_01_quick_sort   valgrind 메모리 검사
+#   make g_01_quick_sort   gdb
+PORT   := 01_quick_sort
+PORTR  := $(addprefix r_,$(PORT))
+PORTG  := $(addprefix g_,$(PORT))
+PORTD  := $(addprefix d_,$(PORT))
+PORTV  := $(addprefix v_,$(PORT))
+
+# lab 규칙과 같은 이유로 stem 이 짧아 upstream 의 $(BUILD)/% 보다 먼저 잡힌다.
+$(BUILD)/port_%: porting/%.c | $(BUILD)
+	$(CC) $(CSTD) $(WARN) $(DBG) -Iporting $< -o $@
+
+$(PORT): %: $(BUILD)/port_%
+	@echo "→ $(BUILD)/port_$@"
+
+$(PORTR): r_%: $(BUILD)/port_%
+	@./$< || echo "   (종료 코드 $$?)"
+
+$(PORTG): g_%: $(BUILD)/port_%
+	gdb ./$<
+
+$(PORTD): d_%: $(BUILD)/port_%
+	@./$< > $(BUILD)/port_$*.actual 2>&1 || true
+	@if diff -u porting/$*_output.txt $(BUILD)/port_$*.actual > $(BUILD)/port_$*.diff; then \
+		echo "  ✅ $*  출력 일치"; \
+	else \
+		echo "  ❌ $*  출력 불일치  (- 가 기대값 / + 가 실제값)"; \
+		echo ""; \
+		cat $(BUILD)/port_$*.diff; \
+	fi
+
+$(PORTV): v_%: $(BUILD)/port_%
+	@valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$<
+
 # ─── ASan/UBSan 모드 ───
 #   make asan 02_stack_buffer_overflow      빌드 + 실행 → 새니타이저 리포트
 #   make asan g_02_stack_buffer_overflow    빌드 + gdb
@@ -137,7 +177,7 @@ $(DGCH): dg_%: | build-docker
 dclean:
 	rm -rf build-docker
 
-.PHONY: $(CH) $(RCH) $(GCH) $(DRCH) $(DGCH) $(LABR) $(LABG) $(LABDG) asan aclean dimage dcheck dshell dclean help-all
+.PHONY: $(CH) $(RCH) $(GCH) $(DRCH) $(DGCH) $(LABR) $(LABG) $(LABDG) $(PORT) $(PORTR) $(PORTG) $(PORTD) $(PORTV) asan aclean dimage dcheck dshell dclean help-all
 
 .DEFAULT_GOAL := help-all
 help-all: help
@@ -149,4 +189,5 @@ help-all: help
 	echo "  make dshell | dimage | dclean        컨테이너 셸 | 이미지 빌드 | build-docker 정리"; \
 	echo "  make asan <이름> | asan g_<이름>      ASan+UBSan 으로 빌드해 실행 | gdb (수정 검증 후에)"; \
 	echo "  make aclean                          build-asan 정리 (make clean 에도 딸려간다)"; \
-	echo "  make lab_chunk | g_lab_chunk         힙 청크 실험: 실행 | gdb  (컨테이너는 dg_lab_chunk)"
+	echo "  make lab_chunk | g_lab_chunk         힙 청크 실험: 실행 | gdb  (컨테이너는 dg_lab_chunk)"; \
+	echo "  make d_01_quick_sort | v_…            porting: 기대 출력과 diff | valgrind (r_/g_ 도 됨)"

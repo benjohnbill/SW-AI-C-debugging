@@ -1,7 +1,8 @@
 # CLAUDE.md — SW-AI-C-debugging (week 5 memory-debugging lab)
 
-The tutor spine is imported by the parent `CLAUDE.md`; this file fills its
-slots.
+The tutor spine is imported by the parent `CLAUDE.md`; this file fills the
+week-file slots (`skills/jungle-week-init/SKILL.md` § 6). No `Mode:` line:
+tutor mode.
 
 ## Purpose
 
@@ -37,8 +38,8 @@ After it passes, one at a time, in order:
 1. Which invariant was broken (ownership, lifetime, bounds), in one sentence.
 2. Where else in the same file the same pattern appears and is still safe — why.
 3. Would ASan or valgrind have caught it earlier, and what would the report
-   say? Let him predict before running (`-fsanitize=address` is not in the
-   Makefile; he adds it by hand if he wants it).
+   say? Let him predict before running (`make asan <name>` builds with ASan and
+   UBSan; the upstream `Makefile` itself has no `-fsanitize`).
 
 ## Slot 2 — statement and spoilers
 
@@ -54,8 +55,9 @@ Host: Ubuntu 26.04 · gcc 15 · glibc 2.43 · gdb 17 with his own
 `~/.config/gdb/gdbinit` + `~/.config/gdb/*.py` (repo `benjohnbill/gdb-config`).
 `~/.gdbinit` is inert: six comment lines, no definitions.
 Container (`memdbg`): Ubuntu 24.04 · gcc 13 · glibc 2.39 · gdb 15, with the same
-`~/.config/gdb` bind-mounted read-only, so the commands below
-work there too; only the gdb-16 color slots are skipped. Measured 2026-09-15:
+`~/.config/gdb` bind-mounted read-write (the history lives there), so the
+commands below work there too; only the gdb-16 color slots are skipped.
+Measured 2026-09-15:
 18/20 crash identically on both.
 
 He wrote every command in this table himself. A question about one is a direct
@@ -67,19 +69,22 @@ defining file and lists what stock-gdb reasoning gets wrong here.
 
 | Command | What it does |
 |---|---|
-| `dbg` · `vars` · `out` | TUI layouts: tall source · source and values · the program's own output (`out send TEXT`, `out off`) |
+| `dbg` · `vars` · `vars full` · `out` | TUI layouts: tall source · source and values · values only, no source window · the program's own output (`out send TEXT`, `out off`, `out on`) |
+| `cmdwin [ROWS]` | resize the command window; ROWS is capped at the terminal height minus seven |
 | `tk EXPR` · `tk -l EXPR` · `tk /FMT EXPR` | one row per expression, redrawn in place, not scrolled. `-l` pins the row to the address, so it survives leaving the frame — and is never re-pinned, so it outlives `rerun` pointing at whoever owns that address now. `/FMT` makes a memory row, compared word by word |
-| `itk` · `utk N` · `utk 1..4` | list the rows · remove row N · remove rows 1 to 4, both ends included |
+| `itk` · `utk N` · `utk 1..4` · `delete track` | list the rows · remove row N · remove rows 1 to 4, both ends included · remove every row (a bare `utk` does too) |
 | `tk walk EXPR N [FIELD]` | the first N nodes of a chain, one row each. FIELD only when more than one field points at the node's own type |
 | `tk deep EXPR N` | EXPR and every struct it reaches within N levels, one row each. N counts levels, so a tree branches fast |
-| `tk tri[0..5]` · `tk each PATTERN` | one row per element or member. Tokens: `[A..B]`, `[A..]`, `[..B]`, `[..]`, `[]`, `.*`, `->*`. A bound is an expression: `tri[0..rows-1]`. No token steps an array or a struct whole |
+| `tk tri[0..5]` · `tk each PATTERN` · `tk e PATTERN` | one row per element or member. Tokens: `[A..B]`, `[A..]`, `[..B]`, `[..]`, `[]`, `.*`, `->*`. A bound is an expression: `tri[0..rows-1]`. No token steps an array or a struct whole |
 | `-l` on all three | `tk walk -l` · `tk deep -l` · `tk each -l` pin every row of the group to its own address. The standalone `walk`, `deep` and `each` take no flag |
-| `walk EXPR [FIELD]` · `deep EXPR N` · `each [/FMT] PATTERN` | the same three expansions, printed once instead of tracked. `each` and `deep` number every line `$N`, as `print` numbers its own, so `$3` reads one back. `walk` does not number its lines. `each` takes one format letter and refuses `/4xg` |
+| `walk EXPR [FIELD]` · `deep EXPR N` · `each [/FMT] PATTERN` (alias `e`) | the same three expansions, printed once instead of tracked. `each` and `deep` number every line `$N`, as `print` numbers its own, so `$3` reads one back. `walk` does not number its lines. `each` takes one format letter and refuses `/4xg` |
 | `snap [LABEL]` · `snaps` · `back [LABEL]` | named checkpoints. `back` re-takes the flag it returns to, so the same one works again |
-| `rebuild [TARGET]` · `rerun` | make the loaded binary · rebuild, kill the process, drop the source cache (a bare `directory`), run. A failed build stops before the kill |
+| `rebuild [TARGET]` · `rerun` | rebuild the loaded binary: replay the gcc command the `c dbg` wrapper recorded in `<exe>.build` if that file exists, else `make` the target named like the binary (`TARGET` overrides it; the record route ignores `TARGET`) · rebuild, kill the process, drop the source cache (a bare `directory`), run. A failed build stops before the kill |
 
 A row shows `*` and `old -> new` when the value moved since the previous stop,
-and `?` when the expression cannot be read from the selected frame.
+and `?` when the innermost frame cannot see the name (the row keeps the last
+value it could read). In a frame selected with `up`, rows are not read again: a
+banner says the values are from the last stop.
 
 - `10_realloc_dangling` does **not** crash on the host (glibc 2.43 misses the
   double free) and `17_ownership_uaf` aborts on host but segfaults in the
@@ -94,10 +99,14 @@ make <name> | r_<name> | g_<name>    host build | run | gdb (tab-completes)
 make dcheck                          container: all 20 → crash summary
 make dr_<name> | dg_<name>           container run | gdb
 make dshell | dimage | dclean
+make asan <name> | asan g_<name>     host ASan+UBSan build (build-asan/): run | gdb. After the fix is verified
+make lab_chunk | g_lab_chunk         lab/chunk.c: run | gdb (container: dg_lab_chunk)
+make 01_quick_sort | r_… | g_…       porting/ (Python → C): compile only | run | gdb
+make d_01_quick_sort | v_…           porting/: diff against expected output | valgrind
 ```
 
 Upstream `make run NAME=… / make gdb NAME=… / make check` still work.
-`build/` is host output, `build-docker/` is container output; both ignored.
+`build/` is host output, `build-docker/` is container output, `build-asan/` is `make asan` output; all ignored.
 
 `lab/` is ours too: hand-written experiments and their write-ups.
 `lab/heap-anatomy.md` is the glibc chunk reference — layout, the size formula,

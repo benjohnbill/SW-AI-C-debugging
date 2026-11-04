@@ -106,7 +106,7 @@ static void directory_free(Directory *d) {
     }
     // for (int i = 0; i < d->count; i++) {
     //     free(d->by_name[i]);
-    // }
+    // } // by_id and by_name indicate the same memory space
     d->count = 0;
 }
 
