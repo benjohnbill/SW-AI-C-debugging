@@ -1,5 +1,11 @@
 # SW-AI-C-debugging (week 5 memory-debugging lab)
 
+> **Codex:** this repository is its own git root, so Codex does not load the
+> workspace rules above it. Before the first reply, read
+> [`../AGENTS.md`](../AGENTS.md) (workspace router) and
+> [`../docs/tutor-spine.md`](../docs/tutor-spine.md) (tutor spine). Claude Code
+> already loads both through the parent `CLAUDE.md`.
+
 The tutor spine is imported by the parent `CLAUDE.md`; this file fills the
 week-file slots (`skills/jungle-week-init/SKILL.md` § 6). No `Mode:` line:
 tutor mode.
